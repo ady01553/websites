@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voxel Visualizer with Web Audio</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+        }
+        #container {
+            width: 95%;
+            height: 90vh;
+            max-width: 1000px;
+            position: relative;
+            background-color: #d0e0f0;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            z-index: 10;
+        }
+         #muteButton { /* Style for the mute button */
+             position: absolute;
+             bottom: 15px;
+             left: 50%;
+             transform: translateX(-50%);
+             padding: 8px 15px;
+             font-size: 0.9em;
+             background-color: rgba(0, 0, 0, 0.4);
+             color: white;
+             border: 1px solid rgba(0, 0, 0, 0.6);
+             border-radius: 5px;
+             cursor: pointer;
+             z-index: 10;
+             transition: background-color 0.3s ease;
+        }
+         #muteButton:hover {
+             background-color: rgba(0, 0, 0, 0.6);
+         }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <div id="container">
+        <div id="info">Drag mouse to rotate, scroll to zoom</div>
+         <button id="muteButton">Mute</button>
+        </div>
+
+    <script>
+        // --- Three.js Global Variables ---
+        let scene, camera, renderer, controls;
+        let cubes = [];
+        const container = document.getElementById('container');
+        const muteButton = document.getElementById('muteButton'); // Get button element
+
+        // --- Web Audio API Global Variables ---
+        let audioContext; // The main audio processing context
+        let oscillator;   // Generates the sound tone
+        let gainNode;     // Controls the volume
+        let isMuted = false;
+        let audioStarted = false; // Flag to check if context is running
+        let lastCameraAngle = {azimuthal: 0, polar: 0}; // Track camera angle
+        let lastCameraDistance = 0; // Track camera distance (zoom)
+        let soundCooldown = 0; // Timestamp for cooldown
+
+        // --- Texture Generation (same as before) ---
+        function generatePatternData(width = 16, height = 16) {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            const colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF'];
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                     ctx.fillStyle = colors[(x + y) % colors.length];
+                     if (Math.random() > 0.85) {
+                         ctx.fillStyle = 'rgba(0,0,0,0)';
+                     }
+                    ctx.fillRect(x, y, 1, 1);
+                }
+            }
+            // console.log("Generated pattern data.");
+            return ctx.getImageData(0, 0, width, height);
+        }
+
+         // --- Web Audio API Setup ---
+         function setupSound() {
+            try {
+                // Create AudioContext (or use existing one)
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+                // Create Oscillator Node
+                oscillator = audioContext.createOscillator();
+                oscillator.type = 'sine'; // Type of sound wave (sine, square, sawtooth, triangle)
+                oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // Initial frequency (A4 note)
+
+                // Create Gain Node (for volume control)
+                gainNode = audioContext.createGain();
+                gainNode.gain.setValueAtTime(0, audioContext.currentTime); // Start silent
+
+                // Connect nodes: Oscillator -> Gain -> Output (Speakers)
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                // Start the oscillator (it's silent until gain > 0)
+                oscillator.start();
+                console.log("Web Audio setup complete.");
+
+                // Mute button functionality
+                 muteButton.addEventListener('click', () => {
+                    isMuted = !isMuted;
+                    if (isMuted) {
+                        // Set gain to 0 immediately when muted
+                        gainNode.gain.cancelScheduledValues(audioContext.currentTime); // Cancel any fades
+                        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                        muteButton.textContent = 'Unmute';
+                        console.log("Audio Muted");
+                    } else {
+                        muteButton.textContent = 'Mute';
+                        console.log("Audio Unmuted");
+                        // Ensure context is running if unmuting (might have been suspended)
+                        startAudioContext();
+                    }
+                 });
+
+            } catch (e) {
+                console.error("Web Audio API is not supported in this browser.", e);
+                // Disable mute button if audio fails
+                muteButton.disabled = true;
+                muteButton.textContent = 'Audio N/A';
+            }
+         }
+
+         // Function to start/resume Audio Context (needs user interaction)
+         function startAudioContext() {
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume().then(() => {
+                    audioStarted = true;
+                    console.log("Audio Context resumed.");
+                }).catch(e => console.error("Could not resume Audio Context:", e));
+            } else if (audioContext && audioContext.state === 'running') {
+                 audioStarted = true; // Already running
+            }
+         }
+
+
+        // --- Initialization (Three.js + Sound) ---
+        function init() {
+            console.log("Initializing...");
+
+            // 1. Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xd0e0f0);
+
+            // 2. Camera
+            const aspect = container.clientWidth / container.clientHeight;
+            camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
+            camera.position.set(15, 15, 25);
+
+            // 3. Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            // 4. Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 7.5);
+            scene.add(directionalLight);
+
+            // 5. Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.1;
+            controls.screenSpacePanning = false;
+            controls.minDistance = 5;
+            controls.maxDistance = 100;
+            controls.target.set(0, 0, 0);
+            controls.update();
+
+             // Add listeners for sound triggering
+             controls.addEventListener('start', startAudioContext); // Resume audio on first interaction
+             controls.addEventListener('change', handleCameraChange); // Trigger sound updates on movement
+
+            // 6. Create Voxel Geometry
+            createVoxelsFromData();
+
+            // 7. Setup Web Audio
+            setupSound(); // Initialize sound components
+
+            // 8. Handle Window Resize
+            window.addEventListener('resize', onWindowResize, false);
+
+            // Store initial camera state for sound calculation
+            lastCameraAngle.azimuthal = controls.getAzimuthalAngle();
+            lastCameraAngle.polar = controls.getPolarAngle();
+            lastCameraDistance = camera.position.distanceTo(controls.target);
+
+            console.log("Initialization complete.");
+        }
+
+        // --- Create Voxels (same as before) ---
+        function createVoxelsFromData() {
+            // console.log("Creating voxels...");
+            const imageData = generatePatternData(16, 16);
+            const width = imageData.width;
+            const height = imageData.height;
+            const data = imageData.data;
+            const cubeSize = 1;
+            const geometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+            const offsetX = -width * cubeSize / 2 + cubeSize / 2;
+            const offsetY = -height * cubeSize / 2 + cubeSize / 2;
+            let cubeCount = 0;
+
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const index = (y * width + x) * 4;
+                    const r = data[index];
+                    const g = data[index + 1];
+                    const b = data[index + 2];
+                    const a = data[index + 3];
+                    if (a > 10) {
+                        const color = new THREE.Color(`rgb(${r},${g},${b})`);
+                        const material = new THREE.MeshLambertMaterial({ color: color });
+                        const cube = new THREE.Mesh(geometry, material);
+                        cube.position.set(
+                            offsetX + x * cubeSize,
+                            offsetY + (height - 1 - y) * cubeSize,
+                            0
+                        );
+                        scene.add(cube);
+                        cubes.push(cube);
+                        cubeCount++;
+                    }
+                }
+            }
+            // console.log(`Created ${cubeCount} voxels.`);
+        }
+
+         // --- Handle Camera Change for Sound ---
+        function handleCameraChange() {
+            // Exit if audio isn't ready or is muted
+            if (!audioStarted || isMuted || !audioContext || !oscillator || !gainNode) return;
+
+            const now = audioContext.currentTime; // Get current audio time
+            // Check cooldown to prevent sound spamming
+            if (now < soundCooldown) {
+                return;
+            }
+
+
+            const currentAzimuthal = controls.getAzimuthalAngle();
+            const currentPolar = controls.getPolarAngle();
+            const currentDistance = camera.position.distanceTo(controls.target);
+
+            // Calculate change magnitude (simple difference)
+            const angleChange = Math.abs(currentAzimuthal - lastCameraAngle.azimuthal) + Math.abs(currentPolar - lastCameraAngle.polar);
+            const distanceChange = Math.abs(currentDistance - lastCameraDistance);
+
+            // Define threshold for triggering sound
+            const movementThreshold = 0.01; // Adjust as needed
+
+            if (angleChange > movementThreshold || distanceChange > movementThreshold * 5) { // Zoom change is less sensitive
+                 // Map camera distance to frequency (higher pitch when closer)
+                const minFreq = 150; // Hz
+                const maxFreq = 800; // Hz
+                const freqRange = maxFreq - minFreq;
+                // Normalize distance (0 = closest, 1 = farthest)
+                const normalizedDistance = (currentDistance - controls.minDistance) / (controls.maxDistance - controls.minDistance);
+                // Calculate frequency (inverted: closer = higher freq)
+                const freq = maxFreq - (normalizedDistance * freqRange);
+
+                // Set a fixed gain for the blip (volume)
+                const peakGain = 0.15; // Adjust volume (keep it low!)
+                const duration = 0.1; // Duration of the sound blip in seconds
+
+                // --- Schedule Audio Events ---
+                // Set frequency instantly
+                oscillator.frequency.setValueAtTime(freq, now);
+
+                // Ramp gain up quickly (almost instant) and then ramp down
+                gainNode.gain.cancelScheduledValues(now); // Clear previous ramps
+                gainNode.gain.setValueAtTime(gainNode.gain.value, now); // Start from current value (important!)
+                gainNode.gain.linearRampToValueAtTime(peakGain, now + 0.01); // Ramp up fast
+                gainNode.gain.linearRampToValueAtTime(0.001, now + duration); // Ramp down to near silence
+
+                // Set cooldown period (e.g., 50ms)
+                soundCooldown = now + 0.05;
+
+                // Update last known camera state
+                lastCameraAngle.azimuthal = currentAzimuthal;
+                lastCameraAngle.polar = currentPolar;
+                lastCameraDistance = currentDistance;
+            }
+        }
+
+
+        // --- Handle Window Resize (same as before) ---
+        function onWindowResize() {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            // console.log("Window resized.");
+        }
+
+        // --- Animation Loop (same as before) ---
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // --- Start ---
+         window.onload = function () {
+             try {
+                init();
+                animate();
+             } catch (error) {
+                 console.error("Error during initialization or animation:", error);
+                 const infoBox = document.getElementById('info');
+                 if (infoBox) {
+                     infoBox.textContent = "Error loading visualizer. Check console (F12).";
+                     infoBox.style.backgroundColor = "red";
+                 }
+             }
+        }
+
+    </script>
+</body>
+</html>
