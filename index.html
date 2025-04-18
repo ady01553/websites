@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="A simple web tool to calculate and schedule work tasks based on your work hours, break times, and the number of tasks you need to complete. Plan your day effectively.">
+    <meta name="description" content="A simple web tool to calculate and schedule work tasks based on your work hours, optional break times, and the number of tasks you need to complete. Choose 12-hour or 24-hour time format.">
     <title>Work Task Scheduler</title>
     <style>
         /* Basic Reset & Font */
@@ -14,18 +14,24 @@
             display: flex; align-items: center; justify-content: center; padding: 1rem;
         }
 
-        /* --- Light Theme Defaults --- */
+        /* --- Theme Styles (Condensed) --- */
+        /* Light Theme */
         html.light body { background-color: #f0f4f8; color: #1f2937; }
         html.light .scheduler-card { background-color: #ffffff; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
         html.light label { color: #374151; }
         html.light input[type="time"], html.light input[type="number"] { border: 1px solid #d1d5db; background-color: #ffffff; color: #111827; }
         html.light input:focus { border-color: #4f46e5; box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.3); }
-        html.light .break-section { border-top: 1px solid #e5e7eb; }
+        html.light .expandable-section summary { border-bottom: 1px solid #e5e7eb; }
+        html.light .expandable-section[open] summary { border-bottom: 1px solid transparent; }
         html.light .section-label { color: #4b5563; }
         html.light .submit-button { background-color: #4f46e5; color: #ffffff; }
         html.light .submit-button:hover { background-color: #4338ca; }
         html.light .clear-button { background-color: #e5e7eb; color: #374151; border: 1px solid #d1d5db; }
         html.light .clear-button:hover { background-color: #d1d5db; }
+        html.light .add-break-button { background-color: #eef2ff; color: #4338ca; border: 1px dashed #c7d2fe; }
+        html.light .add-break-button:hover { background-color: #e0e7ff; }
+        html.light .remove-break-button { color: #ef4444; background: none; border: none; }
+        html.light .remove-break-button:hover { color: #dc2626; }
         html.light .results-area h2 { color: #1f2937; }
         html.light .results-list { background-color: #f9fafb; border: 1px solid #e5e7eb; }
         html.light .results-list li { border-bottom: 1px solid #e5e7eb; }
@@ -40,19 +46,27 @@
         html.light .theme-button { color: #6b7280; }
         html.light .theme-button:hover { background-color: #f3f4f6; }
         html.light .theme-button.active { background-color: #e0e7ff; color: #4338ca; }
-
-        /* --- Dark Theme Overrides --- */
+        html.light .toggle-switch-label .toggle-bg { background-color: #e5e7eb; }
+        html.light .toggle-switch-label input:checked + .toggle-bg { background-color: #a5b4fc; }
+        html.light .toggle-switch-label input:checked + .toggle-bg::before { border-color: #a5b4fc; }
+        html.light .toggle-switch-label .toggle-bg::before { background-color: white; border: 1px solid #e5e7eb; }
+        /* Dark Theme */
         html.dark body { background-color: #111827; color: #e5e7eb; }
         html.dark .scheduler-card { background-color: #1f2937; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2); }
         html.dark label { color: #d1d5db; }
         html.dark input[type="time"], html.dark input[type="number"] { border: 1px solid #4b5563; background-color: #374151; color: #f3f4f6; }
         html.dark input:focus { border-color: #818cf8; box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.3); }
-        html.dark .break-section { border-top: 1px solid #4b5563; }
+        html.dark .expandable-section summary { border-bottom: 1px solid #4b5563; }
+        html.dark .expandable-section[open] summary { border-bottom: 1px solid transparent; }
         html.dark .section-label { color: #9ca3af; }
         html.dark .submit-button { background-color: #6366f1; color: #ffffff; }
         html.dark .submit-button:hover { background-color: #4f46e5; }
         html.dark .clear-button { background-color: #4b5563; color: #e5e7eb; border: 1px solid #6b7280; }
         html.dark .clear-button:hover { background-color: #6b7280; }
+        html.dark .add-break-button { background-color: #312e81; color: #c7d2fe; border: 1px dashed #4f46e5; }
+        html.dark .add-break-button:hover { background-color: #3730a3; }
+        html.dark .remove-break-button { color: #f87171; background: none; border: none; }
+        html.dark .remove-break-button:hover { color: #fca5a5; }
         html.dark .results-area h2 { color: #f3f4f6; }
         html.dark .results-list { background-color: #374151; border: 1px solid #4b5563; }
         html.dark .results-list li { border-bottom: 1px solid #4b5563; }
@@ -67,20 +81,46 @@
         html.dark .theme-button { color: #9ca3af; }
         html.dark .theme-button:hover { background-color: #374151; }
         html.dark .theme-button.active { background-color: #4338ca; color: #e0e7ff; }
+        html.dark .toggle-switch-label .toggle-bg { background-color: #4b5563; }
+        html.dark .toggle-switch-label input:checked + .toggle-bg { background-color: #6366f1; }
+        html.dark .toggle-switch-label input:checked + .toggle-bg::before { border-color: #6366f1; }
+        html.dark .toggle-switch-label .toggle-bg::before { background-color: #374151; border: 1px solid #4b5563; }
 
         /* --- Layout & Components --- */
-        /* ... (Layout styles remain the same) ... */
         .scheduler-card { border-radius: 0.75rem; padding: 2rem; width: 100%; max-width: 42rem; position: relative; transition: background-color 0.3s; }
-        .card-title { font-size: 1.5rem; font-weight: 700; text-align: center; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding-top: 2rem; }
-        .theme-switcher { position: absolute; top: 1rem; right: 1rem; display: flex; gap: 0.5rem; }
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; }
+        .card-title { font-size: 1.5rem; font-weight: 700; text-align: center; display: flex; align-items: center; justify-content: center; gap: 0.5rem; flex-grow: 1; padding-top: 0.5rem; }
+        /* Updated gap for controls container */
+        .controls-container {
+            display: flex; flex-direction: column; align-items: flex-end;
+            gap: 1rem; /* Increased gap from 0.5rem */
+            position: absolute; top: 1rem; right: 1rem;
+        }
+        .theme-switcher { display: flex; gap: 0.5rem; }
         .theme-button { padding: 0.5rem; border-radius: 9999px; border: none; background: none; cursor: pointer; transition: background-color 0.2s, color 0.2s; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; }
         .theme-button:focus { outline: 2px solid transparent; outline-offset: 2px; box-shadow: 0 0 0 2px currentColor; }
+        .toggle-switch-container { display: flex; align-items: center; gap: 0.75rem; font-size: 0.8rem; justify-content: flex-end; }
+        #time-format-label { min-width: 95px; text-align: left; display: inline-block; }
+        .toggle-switch-label { display: inline-flex; align-items: center; cursor: pointer; }
+        .toggle-switch-label input { opacity: 0; width: 0; height: 0; position: absolute; }
+        .toggle-switch-label .toggle-bg { width: 34px; height: 14px; border-radius: 7px; position: relative; transition: background-color 0.2s ease; }
+        .toggle-switch-label .toggle-bg::before { content: ''; position: absolute; width: 20px; height: 20px; background-color: white; border-radius: 50%; top: 50%; transform: translateY(-50%); left: -3px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: transform 0.2s ease; }
+        .toggle-switch-label input:checked + .toggle-bg::before { transform: translate(17px, -50%); }
         form { display: flex; flex-direction: column; gap: 1.25rem; }
         .input-grid { display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
         label { display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.25rem; }
         input[type="time"], input[type="number"] { width: 100%; padding: 0.65rem 1rem; border-radius: 0.5rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: border-color 0.2s, box-shadow 0.2s; font-size: 1rem; }
-        .break-section { padding-top: 1.25rem; margin-top: 1.25rem; }
-        .section-label { font-size: 0.875rem; font-weight: 500; margin-bottom: 0.75rem; }
+        .expandable-section { border-top: 1px solid transparent; margin-top: 1.25rem; }
+        .expandable-section summary { padding: 0.75rem 0; cursor: pointer; list-style: none; font-size: 0.875rem; font-weight: 500; display: flex; justify-content: space-between; align-items: center; transition: border-color 0.2s; }
+        .expandable-section summary::-webkit-details-marker { display: none; }
+        .expandable-section summary::after { content: '▶'; font-size: 0.7em; transition: transform 0.2s; margin-left: 0.5rem; display: inline-block; }
+        .expandable-section[open] summary::after { transform: rotate(90deg); }
+        .expandable-section-content { padding-top: 1rem; display: flex; flex-direction: column; gap: 1rem; }
+        .break-entry { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; }
+        .break-entry label { margin-bottom: 0; white-space: nowrap; }
+        .break-entry input[type="time"] { flex-grow: 1; }
+        .remove-break-button { padding: 0.25rem; font-size: 1.2rem; line-height: 1; cursor: pointer; margin-left: auto; }
+        .add-break-button { width: 100%; font-weight: 500; padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; transition: background-color 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-size: 0.9rem; margin-top: 0.5rem; }
         .tasks-section { padding-top: 1.25rem; }
         .button-container { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
         .submit-button, .clear-button { width: 100%; font-weight: 600; padding: 0.75rem 1rem; border-radius: 0.5rem; cursor: pointer; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); transition: background-color 0.2s, border-color 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-size: 1rem; }
@@ -105,13 +145,8 @@
 
     </style>
     <script>
-      (function() { /* ... Theme loading script unchanged ... */
-        const theme = localStorage.getItem('theme');
-        if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-          document.documentElement.classList.remove('light'); document.documentElement.classList.add('dark');
-        } else {
-           document.documentElement.classList.remove('dark'); document.documentElement.classList.add('light');
-        }
+      (function() { /* Theme loading script */ /* ... unchanged ... */
+        const theme = localStorage.getItem('theme'); if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.remove('light'); document.documentElement.classList.add('dark'); } else { document.documentElement.classList.remove('dark'); document.documentElement.classList.add('light'); }
       })();
     </script>
 </head>
@@ -119,49 +154,46 @@
 
     <div class="scheduler-card">
 
-        <div class="theme-switcher">
-            <button id="light-theme-btn" aria-label="Activate light theme" class="theme-button">☀️</button>
-            <button id="dark-theme-btn" aria-label="Activate dark theme" class="theme-button">🌙</button>
+        <div class="card-header">
+             <h1 class="card-title"> <span class="icon">⏰</span> Work Task Scheduler </h1>
+             <div class="controls-container">
+                 <div class="theme-switcher">
+                    <button id="light-theme-btn" aria-label="Activate light theme" class="theme-button">☀️</button>
+                    <button id="dark-theme-btn" aria-label="Activate dark theme" class="theme-button">🌙</button>
+                </div>
+                <div class="toggle-switch-container">
+                     <span id="time-format-label">24-Hour</span>
+                     <label for="time-format-toggle" class="toggle-switch-label">
+                         <input type="checkbox" id="time-format-toggle">
+                         <span class="toggle-bg"></span>
+                     </label>
+                 </div>
+             </div>
         </div>
 
-        <h1 class="card-title">
-            <span class="icon">⏰</span>
-            Work Task Scheduler
-        </h1>
 
         <form id="scheduler-form">
              <div class="input-grid">
                 <div> <label for="work-start">Work Start Time</label> <input type="time" id="work-start" required> </div>
                 <div> <label for="work-end">Work End Time</label> <input type="time" id="work-end" required> </div>
             </div>
-             <div class="break-section">
-                 <p class="section-label">Break 1 (Optional - leave blank if none)</p>
-                 <div class="input-grid">
-                    <div> <label for="break1-start">Start Time</label> <input type="time" id="break1-start"> </div>
-                    <div> <label for="break1-end">End Time</label> <input type="time" id="break1-end"> </div>
-                </div>
-            </div>
-             <div class="break-section">
-                 <p class="section-label">Break 2 (Optional - leave blank if none)</p>
-                 <div class="input-grid">
-                    <div> <label for="break2-start">Start Time</label> <input type="time" id="break2-start"> </div>
-                    <div> <label for="break2-end">End Time</label> <input type="time" id="break2-end"> </div>
-                </div>
-            </div>
+
+             <details class="expandable-section" id="breaks-details">
+                 <summary class="section-label">Breaks (Optional)</summary>
+                 <div class="expandable-section-content">
+                     <div id="breaks-container"></div>
+                     <button type="button" id="add-break-btn" class="add-break-button"> <span class="icon" style="font-size: 1.1em; line-height: 1;">➕</span> Add Break </button>
+                 </div>
+             </details>
+
             <div class="tasks-section">
                  <label for="num-tasks">Number of Tasks</label>
                 <input type="number" id="num-tasks" min="1" value="1" required>
             </div>
 
             <div class="button-container">
-                <button type="submit" class="submit-button">
-                    <span class="icon">✅</span>
-                    Calculate Schedule
-                </button>
-                <button type="button" id="clear-button" class="clear-button">
-                     <span class="icon">🗑️</span>
-                     Clear Inputs
-                </button>
+                <button type="submit" class="submit-button"> <span class="icon">✅</span> Calculate Schedule </button>
+                <button type="button" id="clear-button" class="clear-button"> <span class="icon">🗑️</span> Clear Inputs </button>
             </div>
         </form>
 
@@ -176,69 +208,64 @@
 
     <script>
         // --- DOM Elements ---
-        // ... (DOM element references remain the same) ...
-        const form = document.getElementById('scheduler-form');
-        const workStartInput = document.getElementById('work-start');
-        const workEndInput = document.getElementById('work-end');
-        const break1StartInput = document.getElementById('break1-start');
-        const break1EndInput = document.getElementById('break1-end');
-        const break2StartInput = document.getElementById('break2-start');
-        const break2EndInput = document.getElementById('break2-end');
-        const numTasksInput = document.getElementById('num-tasks');
-        const resultsArea = document.getElementById('results-area');
-        const resultsList = document.getElementById('results-list');
-        const messageBox = document.getElementById('message-box');
-        const messageText = document.getElementById('message-text');
-        const successBox = document.getElementById('success-box');
-        const successText = document.getElementById('success-text');
-        const clearButton = document.getElementById('clear-button');
-        const lightThemeBtn = document.getElementById('light-theme-btn');
-        const darkThemeBtn = document.getElementById('dark-theme-btn');
-        const htmlElement = document.documentElement;
-        const epsilon = 0.01;
+        // ... (references remain the same) ...
+        const form = document.getElementById('scheduler-form'); const workStartInput = document.getElementById('work-start'); const workEndInput = document.getElementById('work-end'); const numTasksInput = document.getElementById('num-tasks'); const breaksContainer = document.getElementById('breaks-container'); const addBreakBtn = document.getElementById('add-break-btn'); const resultsArea = document.getElementById('results-area'); const resultsList = document.getElementById('results-list'); const messageBox = document.getElementById('message-box'); const messageText = document.getElementById('message-text'); const successBox = document.getElementById('success-box'); const successText = document.getElementById('success-text'); const clearButton = document.getElementById('clear-button'); const lightThemeBtn = document.getElementById('light-theme-btn'); const darkThemeBtn = document.getElementById('dark-theme-btn'); const htmlElement = document.documentElement; const breaksDetailsElement = document.getElementById('breaks-details'); const timeFormatToggle = document.getElementById('time-format-toggle'); const timeFormatLabel = document.getElementById('time-format-label'); const epsilon = 0.01;
+
+        // --- Constants for localStorage Keys ---
+        // ... (LS_KEYS remain the same) ...
+        const LS_KEYS = { WORK_START: 'scheduler_workStart', WORK_END: 'scheduler_workEnd', NUM_TASKS: 'scheduler_numTasks', BREAKS: 'scheduler_breaks', BREAKS_OPEN: 'scheduler_breaksOpen', TIME_FORMAT: 'scheduler_timeFormat', THEME: 'theme' };
+
+        // --- Global State ---
+        let currentScheduleEvents = [];
 
         // --- Helper Functions ---
-        // ... (Helper functions timeToMinutes, formatTime, showMessage, hideMessages remain the same) ...
+        // ... (Helper functions remain the same) ...
         function timeToMinutes(timeString) { if (!timeString) return null; const parts = timeString.split(':'); if (parts.length !== 2) return null; const h = parseInt(parts[0], 10), m = parseInt(parts[1], 10); if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return null; return h * 60 + m; }
-        function formatTime(totalMinutes) { if (totalMinutes === null || totalMinutes === undefined || isNaN(totalMinutes)) return "N/A"; totalMinutes = Number(totalMinutes); if (totalMinutes < 0) totalMinutes = 0; const rM = Math.round(totalMinutes); const h = Math.floor(rM / 60) % 24; const m = rM % 60; const fH = String(h).padStart(2, '0'); const fM = String(m).padStart(2, '0'); return `${fH}:${fM}`; }
+        function formatTime(totalMinutes) { if (totalMinutes === null || totalMinutes === undefined || isNaN(totalMinutes)) return "N/A"; totalMinutes = Number(totalMinutes); if (totalMinutes < 0) totalMinutes = 0; const roundedMinutes = Math.round(totalMinutes); let hours = Math.floor(roundedMinutes / 60) % 24; const minutes = roundedMinutes % 60; const formattedMinutes = String(minutes).padStart(2, '0'); const use12HourFormat = timeFormatToggle.checked; if (use12HourFormat) { const ampm = hours >= 12 ? 'PM' : 'AM'; let hours12 = hours % 12; if (hours12 === 0) hours12 = 12; return `${hours12}:${formattedMinutes} ${ampm}`; } else { const formattedHours = String(hours).padStart(2, '0'); return `${formattedHours}:${formattedMinutes}`; } }
         function showMessage(element, textElement, message, isError = true) { textElement.textContent = isError ? `Error: ${message}` : message; element.classList.remove('message-box-error', 'message-box-success'); element.classList.add(isError ? 'message-box-error' : 'message-box-success'); element.classList.add('visible'); }
         function hideMessages() { messageBox.classList.remove('visible'); successBox.classList.remove('visible'); }
 
 
          // --- Theme Switching Logic ---
          // ... (Theme logic remains the same) ...
-         function applyTheme(theme) { if (theme === 'dark') { htmlElement.classList.remove('light'); htmlElement.classList.add('dark'); darkThemeBtn.classList.add('active'); lightThemeBtn.classList.remove('active'); } else { htmlElement.classList.remove('dark'); htmlElement.classList.add('light'); lightThemeBtn.classList.add('active'); darkThemeBtn.classList.remove('active'); } }
-         lightThemeBtn.addEventListener('click', () => { applyTheme('light'); localStorage.setItem('theme', 'light'); });
-         darkThemeBtn.addEventListener('click', () => { applyTheme('dark'); localStorage.setItem('theme', 'dark'); });
-         const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-         applyTheme(currentTheme);
+         function applyTheme(theme) { if (theme === 'dark') { htmlElement.classList.remove('light'); htmlElement.classList.add('dark'); darkThemeBtn.classList.add('active'); lightThemeBtn.classList.remove('active'); } else { htmlElement.classList.remove('dark'); htmlElement.classList.add('light'); lightThemeBtn.classList.add('active'); darkThemeBtn.classList.remove('active'); } } lightThemeBtn.addEventListener('click', () => { applyTheme('light'); localStorage.setItem(LS_KEYS.THEME, 'light'); }); darkThemeBtn.addEventListener('click', () => { applyTheme('dark'); localStorage.setItem(LS_KEYS.THEME, 'dark'); }); const currentTheme = localStorage.getItem(LS_KEYS.THEME) || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); applyTheme(currentTheme);
 
 
-        // --- Input Persistence Logic ---
-        // ... (Persistence logic remains the same) ...
-        const inputsToPersist = [ { element: workStartInput, key: 'scheduler_workStart' }, { element: workEndInput, key: 'scheduler_workEnd' }, { element: break1StartInput, key: 'scheduler_break1Start' }, { element: break1EndInput, key: 'scheduler_break1End' }, { element: break2StartInput, key: 'scheduler_break2Start' }, { element: break2EndInput, key: 'scheduler_break2End' }, { element: numTasksInput, key: 'scheduler_numTasks' } ];
-        inputsToPersist.forEach(item => { const savedValue = localStorage.getItem(item.key); if (savedValue !== null) { item.element.value = savedValue; } else if (item.element === numTasksInput) { item.element.value = '1'; } });
-        inputsToPersist.forEach(item => { item.element.addEventListener('input', () => { localStorage.setItem(item.key, item.element.value); }); });
+        // --- Dynamic Breaks & Persistence ---
+        // ... (Dynamic breaks logic remains the same) ...
+        function saveBreaksToLocalStorage() { const breakEntries = breaksContainer.querySelectorAll('.break-entry'); const breaksData = []; breakEntries.forEach(entry => { const startInput = entry.querySelector('input[type="time"]:first-of-type'); const endInput = entry.querySelector('input[type="time"]:last-of-type'); if (startInput.value || endInput.value) { breaksData.push({ start: startInput.value, end: endInput.value }); } }); localStorage.setItem(LS_KEYS.BREAKS, JSON.stringify(breaksData)); }
+        function createBreakEntryElement(startValue = '', endValue = '') { const div = document.createElement('div'); div.className = 'break-entry'; const startLabel = document.createElement('label'); startLabel.textContent = 'Start:'; const startInput = document.createElement('input'); startInput.type = 'time'; startInput.value = startValue; startInput.addEventListener('input', saveBreaksToLocalStorage); const endLabel = document.createElement('label'); endLabel.textContent = 'End:'; const endInput = document.createElement('input'); endInput.type = 'time'; endInput.value = endValue; endInput.addEventListener('input', saveBreaksToLocalStorage); const removeBtn = document.createElement('button'); removeBtn.type = 'button'; removeBtn.className = 'remove-break-button'; removeBtn.innerHTML = '🗑️'; removeBtn.ariaLabel = 'Remove this break'; removeBtn.addEventListener('click', () => { div.remove(); saveBreaksToLocalStorage(); }); div.appendChild(startLabel); div.appendChild(startInput); div.appendChild(endLabel); div.appendChild(endInput); div.appendChild(removeBtn); breaksContainer.appendChild(div); }
+        addBreakBtn.addEventListener('click', () => { createBreakEntryElement(); });
+
+
+        // --- Load Persisted Data ---
+        // ... (Loading logic remains the same) ...
+        function loadPersistedData() { workStartInput.value = localStorage.getItem(LS_KEYS.WORK_START) || ''; workEndInput.value = localStorage.getItem(LS_KEYS.WORK_END) || ''; numTasksInput.value = localStorage.getItem(LS_KEYS.NUM_TASKS) || '1'; const savedBreaksJson = localStorage.getItem(LS_KEYS.BREAKS); if (savedBreaksJson) { try { const savedBreaks = JSON.parse(savedBreaksJson); breaksContainer.innerHTML = ''; savedBreaks.forEach(br => createBreakEntryElement(br.start, br.end)); } catch (e) { console.error("Error parsing saved breaks:", e); localStorage.removeItem(LS_KEYS.BREAKS); } } const isBreaksOpen = localStorage.getItem(LS_KEYS.BREAKS_OPEN); breaksDetailsElement.open = (isBreaksOpen === 'true'); const savedTimeFormat = localStorage.getItem(LS_KEYS.TIME_FORMAT); timeFormatToggle.checked = (savedTimeFormat === '12h'); timeFormatLabel.textContent = timeFormatToggle.checked ? '12-Hour (AM/PM)' : '24-Hour'; } loadPersistedData();
+
+
+        // --- Save Persistent Data Listeners ---
+        // ... (Listeners remain the same) ...
+        workStartInput.addEventListener('input', () => localStorage.setItem(LS_KEYS.WORK_START, workStartInput.value)); workEndInput.addEventListener('input', () => localStorage.setItem(LS_KEYS.WORK_END, workEndInput.value)); numTasksInput.addEventListener('input', () => localStorage.setItem(LS_KEYS.NUM_TASKS, numTasksInput.value)); breaksDetailsElement.addEventListener('toggle', () => { localStorage.setItem(LS_KEYS.BREAKS_OPEN, breaksDetailsElement.open ? 'true' : 'false'); });
+
+
+        // --- Time Format Toggle Logic ---
+        // ... (Listener remains the same) ...
+        timeFormatToggle.addEventListener('change', () => { const use12HourFormat = timeFormatToggle.checked; localStorage.setItem(LS_KEYS.TIME_FORMAT, use12HourFormat ? '12h' : '24h'); timeFormatLabel.textContent = use12HourFormat ? '12-Hour (AM/PM)' : '24-Hour'; if (resultsArea.classList.contains('visible')) { displaySchedule(currentScheduleEvents); } });
 
 
         // --- Clear Button Logic ---
         // ... (Clear logic remains the same) ...
-        clearButton.addEventListener('click', () => { workStartInput.value = ''; workEndInput.value = ''; break1StartInput.value = ''; break1EndInput.value = ''; break2StartInput.value = ''; break2EndInput.value = ''; numTasksInput.value = '1'; inputsToPersist.forEach(item => { localStorage.removeItem(item.key); }); resultsList.innerHTML = ''; resultsArea.classList.remove('visible'); hideMessages(); console.log("Inputs and saved data cleared."); });
+        clearButton.addEventListener('click', () => { workStartInput.value = ''; workEndInput.value = ''; numTasksInput.value = '1'; breaksContainer.innerHTML = ''; breaksDetailsElement.open = false; timeFormatToggle.checked = false; timeFormatLabel.textContent = '24-Hour'; localStorage.removeItem(LS_KEYS.WORK_START); localStorage.removeItem(LS_KEYS.WORK_END); localStorage.removeItem(LS_KEYS.NUM_TASKS); localStorage.removeItem(LS_KEYS.BREAKS); localStorage.removeItem(LS_KEYS.BREAKS_OPEN); localStorage.removeItem(LS_KEYS.TIME_FORMAT); resultsList.innerHTML = ''; resultsArea.classList.remove('visible'); hideMessages(); currentScheduleEvents = []; console.log("Inputs and saved data cleared."); });
+
+
+        // --- Display Schedule Function ---
+        // ... (Display function remains the same) ...
+        function displaySchedule(scheduleData) { resultsList.innerHTML = ''; currentScheduleEvents = scheduleData; if (scheduleData.length === 0) { resultsArea.classList.remove('visible'); return; } let taskWasSplit = false; const taskPartsCount = {}; scheduleData.forEach(item => { if (item.type === 'task') { taskPartsCount[item.name] = (taskPartsCount[item.name] || 0) + 1; if (taskPartsCount[item.name] > 1) taskWasSplit = true; } }); scheduleData.forEach(item => { const li = document.createElement('li'); const labelSpan = document.createElement('span'); labelSpan.classList.add('item-label'); const timeSpan = document.createElement('span'); timeSpan.classList.add('item-time'); const iconSpan = document.createElement('span'); iconSpan.classList.add('icon'); const startTimeFormatted = formatTime(item.startMins); const endTimeFormatted = formatTime(item.endMins); if (item.type === 'task') { li.classList.add('task-item'); iconSpan.textContent = '💼'; labelSpan.appendChild(iconSpan); let taskLabelText = ` ${item.name}:`; if (taskPartsCount[item.name] > 1) { taskLabelText = ` ${item.name} <span class="task-part-label">(Part ${item.part})</span>:`; } labelSpan.innerHTML += taskLabelText; timeSpan.textContent = `${startTimeFormatted} - ${endTimeFormatted}`; } else { li.classList.add('break-item'); iconSpan.textContent = '☕️'; labelSpan.appendChild(iconSpan); labelSpan.appendChild(document.createTextNode(` ${item.name}:`)); timeSpan.textContent = `${startTimeFormatted} - ${endTimeFormatted}`; } li.appendChild(labelSpan); li.appendChild(timeSpan); resultsList.appendChild(li); }); resultsArea.classList.add('visible'); return taskWasSplit; }
 
 
         // --- Main Calculation Logic (Submit Handler) ---
-        // ... (Calculation logic remains the same) ...
-        form.addEventListener('submit', function(event) {
-            event.preventDefault(); hideMessages(); resultsList.innerHTML = ''; resultsArea.classList.remove('visible');
-            const workStartMinutes = timeToMinutes(workStartInput.value); const workEndMinutes = timeToMinutes(workEndInput.value); const numberOfTasks = parseInt(numTasksInput.value, 10);
-            if (workStartMinutes === null || workEndMinutes === null) { showMessage(messageBox, messageText, 'Please provide valid Work Start and End times.'); return; } if (isNaN(numberOfTasks) || numberOfTasks <= 0) { showMessage(messageBox, messageText, 'Number of tasks must be a positive whole number.'); return; } if (workEndMinutes <= workStartMinutes) { showMessage(messageBox, messageText, 'Work end time must be after work start time.'); return; }
-            let break1 = null; const break1StartTimeStr = break1StartInput.value; const break1EndTimeStr = break1EndInput.value; if (break1StartTimeStr || break1EndTimeStr) { if (!break1StartTimeStr || !break1EndTimeStr) { showMessage(messageBox, messageText, 'Please provide both start and end times for Break 1, or leave both blank.'); return; } const b1s = timeToMinutes(break1StartTimeStr), b1e = timeToMinutes(break1EndTimeStr); if (b1s === null || b1e === null) { showMessage(messageBox, messageText, 'Invalid time format for Break 1.'); return; } if (b1e < b1s) { showMessage(messageBox, messageText, 'Break 1 end time cannot be before its start time.'); return; } if (b1e > b1s && (b1s < workStartMinutes || b1e > workEndMinutes)) { showMessage(messageBox, messageText, 'Break 1 must be fully within the work hours.'); return; } break1 = { start: b1s, end: b1e, duration: Math.max(0, b1e - b1s), name: "Break 1" }; }
-            let break2 = null; const break2StartTimeStr = break2StartInput.value; const break2EndTimeStr = break2EndInput.value; if (break2StartTimeStr || break2EndTimeStr) { if (!break2StartTimeStr || !break2EndTimeStr) { showMessage(messageBox, messageText, 'Please provide both start and end times for Break 2, or leave both blank.'); return; } const b2s = timeToMinutes(break2StartTimeStr), b2e = timeToMinutes(break2EndTimeStr); if (b2s === null || b2e === null) { showMessage(messageBox, messageText, 'Invalid time format for Break 2.'); return; } if (b2e < b2s) { showMessage(messageBox, messageText, 'Break 2 end time cannot be before its start time.'); return; } if (b2e > b2s && (b2s < workStartMinutes || b2e > workEndMinutes)) { showMessage(messageBox, messageText, 'Break 2 must be fully within the work hours.'); return; } if (break1 && break1.duration > epsilon && (b2e - b2s) > epsilon && break1.start < b2e && break1.end > b2s) { showMessage(messageBox, messageText, 'Break 1 and Break 2 times cannot overlap.'); return; } break2 = { start: b2s, end: b2e, duration: Math.max(0, b2e - b2s), name: "Break 2" }; }
-            const totalWorkDuration = workEndMinutes - workStartMinutes; const totalBreakDuration = (break1 ? break1.duration : 0) + (break2 ? break2.duration : 0); const availableWorkMinutes = totalWorkDuration - totalBreakDuration; if (availableWorkMinutes <= epsilon) { showMessage(messageBox, messageText, 'Total available work time (excluding breaks) is effectively zero or negative.'); return; } const minutesPerTask = availableWorkMinutes / numberOfTasks; if (minutesPerTask < epsilon) { showMessage(messageBox, messageText, `Calculated task duration is effectively zero (${minutesPerTask.toFixed(2)} mins). Please adjust times or task count.`); return; }
-            let scheduleEvents = []; let calculationError = false; let currentTime = workStartMinutes; const breaks = []; if (break1 && break1.duration > epsilon) breaks.push(break1); if (break2 && break2.duration > epsilon) breaks.push(break2); breaks.sort((a, b) => a.start - b.start); breaks.forEach(br => { scheduleEvents.push({ type: 'break', name: br.name, startMins: br.start, endMins: br.end }); });
-             for (let i = 1; i <= numberOfTasks; i++) { let remainingMinutesForTask = minutesPerTask; let taskPart = 1; let adjusted = true; while(adjusted){ adjusted = false; for (const br of breaks) { if (currentTime >= br.start - epsilon && currentTime < br.end - epsilon) { currentTime = br.end; adjusted = true; break; } } } while (remainingMinutesForTask > epsilon) { if (currentTime >= workEndMinutes - epsilon) { showMessage(messageBox, messageText, `Not enough time to complete Task ${i}. Schedule ends at ${formatTime(workEndMinutes)}.`); calculationError = true; break; } let nextBreakStartTime = workEndMinutes; for (const br of breaks) { if (br.start > currentTime - epsilon) { nextBreakStartTime = Math.min(nextBreakStartTime, br.start); } } const timeUntilNextInterruption = nextBreakStartTime - currentTime; const durationThisSegment = Math.min(remainingMinutesForTask, timeUntilNextInterruption); const segmentEndTime = currentTime + durationThisSegment; scheduleEvents.push({ type: 'task', name: `Task ${i}`, part: taskPart, startMins: currentTime, endMins: segmentEndTime }); remainingMinutesForTask -= durationThisSegment; currentTime = segmentEndTime; taskPart++; adjusted = true; while(adjusted){ adjusted = false; for (const br of breaks) { if (Math.abs(currentTime - br.start) < epsilon) { currentTime = br.end; adjusted = true; break; } } } } if (calculationError) break; }
-            if (!calculationError) { const hasTasks = scheduleEvents.some(e => e.type === 'task'); if (!hasTasks && numberOfTasks > 0) { showMessage(messageBox, messageText, 'Could not schedule any tasks. Available work time might be too small.'); } else if (scheduleEvents.length > 0) { scheduleEvents.sort((a, b) => { if (Math.abs(a.startMins - b.startMins) < epsilon) { if (a.type === 'break' && b.type !== 'break') return -1; if (b.type === 'break' && a.type !== 'break') return 1; if (a.type === 'task' && b.type === 'task') return a.part - b.part; return 0; } return a.startMins - b.startMins; }); let taskWasSplit = false; const taskPartsCount = {}; scheduleEvents.forEach(item => { if (item.type === 'task') { taskPartsCount[item.name] = (taskPartsCount[item.name] || 0) + 1; if (taskPartsCount[item.name] > 1) taskWasSplit = true; } }); scheduleEvents.forEach(item => { const li = document.createElement('li'); const labelSpan = document.createElement('span'); labelSpan.classList.add('item-label'); const timeSpan = document.createElement('span'); timeSpan.classList.add('item-time'); const iconSpan = document.createElement('span'); iconSpan.classList.add('icon'); if (item.type === 'task') { li.classList.add('task-item'); iconSpan.textContent = '💼'; labelSpan.appendChild(iconSpan); let taskLabelText = ` ${item.name}:`; if (taskPartsCount[item.name] > 1) { taskLabelText = ` ${item.name} <span class="task-part-label">(Part ${item.part})</span>:`; } labelSpan.innerHTML += taskLabelText; timeSpan.textContent = `${formatTime(item.startMins)} - ${formatTime(item.endMins)}`; } else { li.classList.add('break-item'); iconSpan.textContent = '☕️'; labelSpan.appendChild(iconSpan); labelSpan.appendChild(document.createTextNode(` ${item.name}:`)); timeSpan.textContent = `${formatTime(item.startMins)} - ${formatTime(item.endMins)}`; } li.appendChild(labelSpan); li.appendChild(timeSpan); resultsList.appendChild(li); }); resultsArea.classList.add('visible'); let successMsg = `Successfully generated schedule with ${numberOfTasks} tasks. Each task requires ${minutesPerTask.toFixed(1)} minutes of work time.`; if (taskWasSplit) successMsg += " Some tasks were split due to breaks."; showMessage(successBox, successText, successMsg, false); } else { showMessage(messageBox, messageText, 'No schedule items to display. Check input values.'); } } else { resultsList.innerHTML = ''; resultsArea.classList.remove('visible'); }
-        });
+        // ... (Submit logic remains the same) ...
+        form.addEventListener('submit', function(event) { event.preventDefault(); hideMessages(); resultsList.innerHTML = ''; resultsArea.classList.remove('visible'); currentScheduleEvents = []; const workStartMinutes = timeToMinutes(workStartInput.value); const workEndMinutes = timeToMinutes(workEndInput.value); const numberOfTasks = parseInt(numTasksInput.value, 10); if (workStartMinutes === null || workEndMinutes === null) { showMessage(messageBox, messageText, 'Please provide valid Work Start and End times.'); return; } if (isNaN(numberOfTasks) || numberOfTasks <= 0) { showMessage(messageBox, messageText, 'Number of tasks must be a positive whole number.'); return; } if (workEndMinutes <= workStartMinutes) { showMessage(messageBox, messageText, 'Work end time must be after work start time.'); return; } const breakElements = breaksContainer.querySelectorAll('.break-entry'); const validBreaks = []; let breakValidationError = false; breakElements.forEach((entry, index) => { const startInput = entry.querySelector('input[type="time"]:first-of-type'); const endInput = entry.querySelector('input[type="time"]:last-of-type'); const startStr = startInput.value; const endStr = endInput.value; if (!startStr && !endStr) return; if (!startStr || !endStr) { showMessage(messageBox, messageText, `Break ${index + 1} is incomplete. Please provide both start and end times, or remove it.`); breakValidationError = true; return; } const startMins = timeToMinutes(startStr); const endMins = timeToMinutes(endStr); if (startMins === null || endMins === null) { showMessage(messageBox, messageText, `Invalid time format in Break ${index + 1}.`); breakValidationError = true; return; } if (endMins < startMins) { showMessage(messageBox, messageText, `Break ${index + 1} end time cannot be before its start time.`); breakValidationError = true; return; } if (endMins > startMins && (startMins < workStartMinutes || endMins > workEndMinutes)) { showMessage(messageBox, messageText, `Break ${index + 1} must be fully within the work hours.`); breakValidationError = true; return; } validBreaks.push({ start: startMins, end: endMins, duration: Math.max(0, endMins - startMins), name: `Break ${index + 1}` }); }); if (breakValidationError) return; validBreaks.sort((a, b) => a.start - b.start); for (let i = 0; i < validBreaks.length - 1; i++) { if (validBreaks[i].end > validBreaks[i+1].start + epsilon) { showMessage(messageBox, messageText, `Break times overlap (e.g., ${validBreaks[i].name} and ${validBreaks[i+1].name}). Please correct.`); return; } } const totalWorkDuration = workEndMinutes - workStartMinutes; const totalBreakDuration = validBreaks.reduce((sum, br) => sum + br.duration, 0); const availableWorkMinutes = totalWorkDuration - totalBreakDuration; if (availableWorkMinutes <= epsilon) { showMessage(messageBox, messageText, 'Total available work time (excluding breaks) is effectively zero or negative.'); return; } const minutesPerTask = availableWorkMinutes / numberOfTasks; if (minutesPerTask < epsilon) { showMessage(messageBox, messageText, `Calculated task duration is effectively zero (${minutesPerTask.toFixed(2)} mins). Please adjust times or task count.`); return; } let scheduleEvents = []; let calculationError = false; let currentTime = workStartMinutes; const breaks = validBreaks; breaks.forEach(br => { if (br.duration > epsilon) { scheduleEvents.push({ type: 'break', name: br.name, startMins: br.start, endMins: br.end }); } }); for (let i = 1; i <= numberOfTasks; i++) { let remainingMinutesForTask = minutesPerTask; let taskPart = 1; let adjusted = true; while(adjusted){ adjusted = false; for (const br of breaks) { if (currentTime >= br.start - epsilon && currentTime < br.end - epsilon) { currentTime = br.end; adjusted = true; break; } } } while (remainingMinutesForTask > epsilon) { if (currentTime >= workEndMinutes - epsilon) { showMessage(messageBox, messageText, `Not enough time to complete Task ${i}. Schedule ends at ${formatTime(workEndMinutes)}.`); calculationError = true; break; } let nextBreakStartTime = workEndMinutes; for (const br of breaks) { if (br.start > currentTime - epsilon) { nextBreakStartTime = Math.min(nextBreakStartTime, br.start); } } const timeUntilNextInterruption = nextBreakStartTime - currentTime; const durationThisSegment = Math.min(remainingMinutesForTask, timeUntilNextInterruption); const segmentEndTime = currentTime + durationThisSegment; scheduleEvents.push({ type: 'task', name: `Task ${i}`, part: taskPart, startMins: currentTime, endMins: segmentEndTime }); remainingMinutesForTask -= durationThisSegment; currentTime = segmentEndTime; taskPart++; adjusted = true; while(adjusted){ adjusted = false; for (const br of breaks) { if (Math.abs(currentTime - br.start) < epsilon) { currentTime = br.end; adjusted = true; break; } } } } if (calculationError) break; } if (!calculationError) { const hasTasks = scheduleEvents.some(e => e.type === 'task'); if (!hasTasks && numberOfTasks > 0) { showMessage(messageBox, messageText, 'Could not schedule any tasks. Available work time might be too small.'); } else if (scheduleEvents.length > 0) { scheduleEvents.sort((a, b) => { if (Math.abs(a.startMins - b.startMins) < epsilon) { if (a.type === 'break' && b.type !== 'break') return -1; if (b.type === 'break' && a.type !== 'break') return 1; if (a.type === 'task' && b.type === 'task') return a.part - b.part; return 0; } return a.startMins - b.startMins; }); const taskWasSplit = displaySchedule(scheduleEvents); let successMsg = `Successfully generated schedule with ${numberOfTasks} tasks. Approximately ${minutesPerTask.toFixed(1)} minutes are available for each task.`; if (taskWasSplit) successMsg += " Some tasks were split due to breaks."; showMessage(successBox, successText, successMsg, false); } else { showMessage(messageBox, messageText, 'No schedule items to display. Check input values.'); } } else { resultsList.innerHTML = ''; resultsArea.classList.remove('visible'); currentScheduleEvents = []; } });
     </script>
 
 </body>
