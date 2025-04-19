@@ -6,6 +6,7 @@
     <meta name="description" content="A simple web tool to calculate and schedule work tasks based on your work hours, optional break times, and the number of tasks you need to complete. Choose 12-hour or 24-hour time format.">
     <title>Work Task Scheduler</title>
     <style>
+        /* Styles remain the same as the previous version */
         /* Basic Reset & Font */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -87,15 +88,11 @@
         html.dark .toggle-switch-label .toggle-bg::before { background-color: #374151; border: 1px solid #4b5563; }
 
         /* --- Layout & Components --- */
+        /* ... (Layout styles remain the same) ... */
         .scheduler-card { border-radius: 0.75rem; padding: 2rem; width: 100%; max-width: 42rem; position: relative; transition: background-color 0.3s; }
         .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; }
         .card-title { font-size: 1.5rem; font-weight: 700; text-align: center; display: flex; align-items: center; justify-content: center; gap: 0.5rem; flex-grow: 1; padding-top: 0.5rem; }
-        /* Updated gap for controls container */
-        .controls-container {
-            display: flex; flex-direction: column; align-items: flex-end;
-            gap: 1rem; /* Increased gap from 0.5rem */
-            position: absolute; top: 1rem; right: 1rem;
-        }
+        .controls-container { display: flex; flex-direction: column; align-items: flex-end; gap: 1rem; position: absolute; top: 1rem; right: 1rem; }
         .theme-switcher { display: flex; gap: 0.5rem; }
         .theme-button { padding: 0.5rem; border-radius: 9999px; border: none; background: none; cursor: pointer; transition: background-color 0.2s, color 0.2s; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; }
         .theme-button:focus { outline: 2px solid transparent; outline-offset: 2px; box-shadow: 0 0 0 2px currentColor; }
@@ -219,11 +216,55 @@
         let currentScheduleEvents = [];
 
         // --- Helper Functions ---
-        // ... (Helper functions remain the same) ...
+        // ... (timeToMinutes, showMessage, hideMessages remain the same) ...
         function timeToMinutes(timeString) { if (!timeString) return null; const parts = timeString.split(':'); if (parts.length !== 2) return null; const h = parseInt(parts[0], 10), m = parseInt(parts[1], 10); if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return null; return h * 60 + m; }
-        function formatTime(totalMinutes) { if (totalMinutes === null || totalMinutes === undefined || isNaN(totalMinutes)) return "N/A"; totalMinutes = Number(totalMinutes); if (totalMinutes < 0) totalMinutes = 0; const roundedMinutes = Math.round(totalMinutes); let hours = Math.floor(roundedMinutes / 60) % 24; const minutes = roundedMinutes % 60; const formattedMinutes = String(minutes).padStart(2, '0'); const use12HourFormat = timeFormatToggle.checked; if (use12HourFormat) { const ampm = hours >= 12 ? 'PM' : 'AM'; let hours12 = hours % 12; if (hours12 === 0) hours12 = 12; return `${hours12}:${formattedMinutes} ${ampm}`; } else { const formattedHours = String(hours).padStart(2, '0'); return `${formattedHours}:${formattedMinutes}`; } }
         function showMessage(element, textElement, message, isError = true) { textElement.textContent = isError ? `Error: ${message}` : message; element.classList.remove('message-box-error', 'message-box-success'); element.classList.add(isError ? 'message-box-error' : 'message-box-success'); element.classList.add('visible'); }
         function hideMessages() { messageBox.classList.remove('visible'); successBox.classList.remove('visible'); }
+
+        // Updated formatTime function (remains same as previous version)
+        function formatTime(totalMinutes) { if (totalMinutes === null || totalMinutes === undefined || isNaN(totalMinutes)) return "N/A"; totalMinutes = Number(totalMinutes); if (totalMinutes < 0) totalMinutes = 0; const roundedMinutes = Math.round(totalMinutes); let hours = Math.floor(roundedMinutes / 60) % 24; const minutes = roundedMinutes % 60; const formattedMinutes = String(minutes).padStart(2, '0'); const use12HourFormat = timeFormatToggle.checked; if (use12HourFormat) { const ampm = hours >= 12 ? 'PM' : 'AM'; let hours12 = hours % 12; if (hours12 === 0) hours12 = 12; return `${hours12}:${formattedMinutes} ${ampm}`; } else { const formattedHours = String(hours).padStart(2, '0'); return `${formattedHours}:${formattedMinutes}`; } }
+
+        // *** New Helper Function: formatDuration ***
+        function formatDuration(minutesDecimal) {
+            if (minutesDecimal === null || minutesDecimal === undefined || isNaN(minutesDecimal) || minutesDecimal < epsilon) {
+                return "0 seconds"; // Handle zero or near-zero duration
+            }
+            // Round to nearest second AFTER converting to seconds
+            const totalSeconds = Math.round(minutesDecimal * 60);
+
+            if (totalSeconds < 1) return "less than a second"; // Should be caught by epsilon check, but good fallback
+
+            const hours = Math.floor(totalSeconds / 3600);
+            const remainingSecondsAfterHours = totalSeconds % 3600;
+            const minutes = Math.floor(remainingSecondsAfterHours / 60);
+            const seconds = remainingSecondsAfterHours % 60; // No need to round again
+
+            let parts = [];
+            if (hours > 0) {
+                parts.push(hours + (hours === 1 ? " hour" : " hours"));
+            }
+            if (minutes > 0) {
+                parts.push(minutes + (minutes === 1 ? " minute" : " minutes"));
+            }
+             // Only show seconds if duration is less than a minute OR if there are remaining seconds when hours/minutes are present
+             // And ensure we don't just show "0 seconds" if higher units exist
+            if (seconds > 0 && (hours > 0 || minutes > 0 || totalSeconds < 60)) {
+                 parts.push(seconds + (seconds === 1 ? " second" : " seconds"));
+            } else if (hours === 0 && minutes === 0 && seconds > 0) {
+                 // Handles cases like exactly 30 seconds
+                 parts.push(seconds + (seconds === 1 ? " second" : " seconds"));
+            }
+
+
+            // Fallback if somehow parts is empty but totalSeconds wasn't 0
+            if (parts.length === 0 && totalSeconds > 0) {
+                 return `${totalSeconds} seconds`; // Should ideally not be reached
+            } else if (parts.length === 0) {
+                 return "0 seconds";
+            }
+
+            return parts.join(" ");
+        }
 
 
          // --- Theme Switching Logic ---
@@ -264,8 +305,36 @@
 
 
         // --- Main Calculation Logic (Submit Handler) ---
-        // ... (Submit logic remains the same) ...
-        form.addEventListener('submit', function(event) { event.preventDefault(); hideMessages(); resultsList.innerHTML = ''; resultsArea.classList.remove('visible'); currentScheduleEvents = []; const workStartMinutes = timeToMinutes(workStartInput.value); const workEndMinutes = timeToMinutes(workEndInput.value); const numberOfTasks = parseInt(numTasksInput.value, 10); if (workStartMinutes === null || workEndMinutes === null) { showMessage(messageBox, messageText, 'Please provide valid Work Start and End times.'); return; } if (isNaN(numberOfTasks) || numberOfTasks <= 0) { showMessage(messageBox, messageText, 'Number of tasks must be a positive whole number.'); return; } if (workEndMinutes <= workStartMinutes) { showMessage(messageBox, messageText, 'Work end time must be after work start time.'); return; } const breakElements = breaksContainer.querySelectorAll('.break-entry'); const validBreaks = []; let breakValidationError = false; breakElements.forEach((entry, index) => { const startInput = entry.querySelector('input[type="time"]:first-of-type'); const endInput = entry.querySelector('input[type="time"]:last-of-type'); const startStr = startInput.value; const endStr = endInput.value; if (!startStr && !endStr) return; if (!startStr || !endStr) { showMessage(messageBox, messageText, `Break ${index + 1} is incomplete. Please provide both start and end times, or remove it.`); breakValidationError = true; return; } const startMins = timeToMinutes(startStr); const endMins = timeToMinutes(endStr); if (startMins === null || endMins === null) { showMessage(messageBox, messageText, `Invalid time format in Break ${index + 1}.`); breakValidationError = true; return; } if (endMins < startMins) { showMessage(messageBox, messageText, `Break ${index + 1} end time cannot be before its start time.`); breakValidationError = true; return; } if (endMins > startMins && (startMins < workStartMinutes || endMins > workEndMinutes)) { showMessage(messageBox, messageText, `Break ${index + 1} must be fully within the work hours.`); breakValidationError = true; return; } validBreaks.push({ start: startMins, end: endMins, duration: Math.max(0, endMins - startMins), name: `Break ${index + 1}` }); }); if (breakValidationError) return; validBreaks.sort((a, b) => a.start - b.start); for (let i = 0; i < validBreaks.length - 1; i++) { if (validBreaks[i].end > validBreaks[i+1].start + epsilon) { showMessage(messageBox, messageText, `Break times overlap (e.g., ${validBreaks[i].name} and ${validBreaks[i+1].name}). Please correct.`); return; } } const totalWorkDuration = workEndMinutes - workStartMinutes; const totalBreakDuration = validBreaks.reduce((sum, br) => sum + br.duration, 0); const availableWorkMinutes = totalWorkDuration - totalBreakDuration; if (availableWorkMinutes <= epsilon) { showMessage(messageBox, messageText, 'Total available work time (excluding breaks) is effectively zero or negative.'); return; } const minutesPerTask = availableWorkMinutes / numberOfTasks; if (minutesPerTask < epsilon) { showMessage(messageBox, messageText, `Calculated task duration is effectively zero (${minutesPerTask.toFixed(2)} mins). Please adjust times or task count.`); return; } let scheduleEvents = []; let calculationError = false; let currentTime = workStartMinutes; const breaks = validBreaks; breaks.forEach(br => { if (br.duration > epsilon) { scheduleEvents.push({ type: 'break', name: br.name, startMins: br.start, endMins: br.end }); } }); for (let i = 1; i <= numberOfTasks; i++) { let remainingMinutesForTask = minutesPerTask; let taskPart = 1; let adjusted = true; while(adjusted){ adjusted = false; for (const br of breaks) { if (currentTime >= br.start - epsilon && currentTime < br.end - epsilon) { currentTime = br.end; adjusted = true; break; } } } while (remainingMinutesForTask > epsilon) { if (currentTime >= workEndMinutes - epsilon) { showMessage(messageBox, messageText, `Not enough time to complete Task ${i}. Schedule ends at ${formatTime(workEndMinutes)}.`); calculationError = true; break; } let nextBreakStartTime = workEndMinutes; for (const br of breaks) { if (br.start > currentTime - epsilon) { nextBreakStartTime = Math.min(nextBreakStartTime, br.start); } } const timeUntilNextInterruption = nextBreakStartTime - currentTime; const durationThisSegment = Math.min(remainingMinutesForTask, timeUntilNextInterruption); const segmentEndTime = currentTime + durationThisSegment; scheduleEvents.push({ type: 'task', name: `Task ${i}`, part: taskPart, startMins: currentTime, endMins: segmentEndTime }); remainingMinutesForTask -= durationThisSegment; currentTime = segmentEndTime; taskPart++; adjusted = true; while(adjusted){ adjusted = false; for (const br of breaks) { if (Math.abs(currentTime - br.start) < epsilon) { currentTime = br.end; adjusted = true; break; } } } } if (calculationError) break; } if (!calculationError) { const hasTasks = scheduleEvents.some(e => e.type === 'task'); if (!hasTasks && numberOfTasks > 0) { showMessage(messageBox, messageText, 'Could not schedule any tasks. Available work time might be too small.'); } else if (scheduleEvents.length > 0) { scheduleEvents.sort((a, b) => { if (Math.abs(a.startMins - b.startMins) < epsilon) { if (a.type === 'break' && b.type !== 'break') return -1; if (b.type === 'break' && a.type !== 'break') return 1; if (a.type === 'task' && b.type === 'task') return a.part - b.part; return 0; } return a.startMins - b.startMins; }); const taskWasSplit = displaySchedule(scheduleEvents); let successMsg = `Successfully generated schedule with ${numberOfTasks} tasks. Approximately ${minutesPerTask.toFixed(1)} minutes are available for each task.`; if (taskWasSplit) successMsg += " Some tasks were split due to breaks."; showMessage(successBox, successText, successMsg, false); } else { showMessage(messageBox, messageText, 'No schedule items to display. Check input values.'); } } else { resultsList.innerHTML = ''; resultsArea.classList.remove('visible'); currentScheduleEvents = []; } });
+        form.addEventListener('submit', function(event) {
+            // ... (Submit logic preamble remains the same) ...
+             event.preventDefault(); hideMessages(); resultsList.innerHTML = ''; resultsArea.classList.remove('visible'); currentScheduleEvents = []; const workStartMinutes = timeToMinutes(workStartInput.value); const workEndMinutes = timeToMinutes(workEndInput.value); const numberOfTasks = parseInt(numTasksInput.value, 10); if (workStartMinutes === null || workEndMinutes === null) { showMessage(messageBox, messageText, 'Please provide valid Work Start and End times.'); return; } if (isNaN(numberOfTasks) || numberOfTasks <= 0) { showMessage(messageBox, messageText, 'Number of tasks must be a positive whole number.'); return; } if (workEndMinutes <= workStartMinutes) { showMessage(messageBox, messageText, 'Work end time must be after work start time.'); return; } const breakElements = breaksContainer.querySelectorAll('.break-entry'); const validBreaks = []; let breakValidationError = false; breakElements.forEach((entry, index) => { const startInput = entry.querySelector('input[type="time"]:first-of-type'); const endInput = entry.querySelector('input[type="time"]:last-of-type'); const startStr = startInput.value; const endStr = endInput.value; if (!startStr && !endStr) return; if (!startStr || !endStr) { showMessage(messageBox, messageText, `Break ${index + 1} is incomplete. Please provide both start and end times, or remove it.`); breakValidationError = true; return; } const startMins = timeToMinutes(startStr); const endMins = timeToMinutes(endStr); if (startMins === null || endMins === null) { showMessage(messageBox, messageText, `Invalid time format in Break ${index + 1}.`); breakValidationError = true; return; } if (endMins < startMins) { showMessage(messageBox, messageText, `Break ${index + 1} end time cannot be before its start time.`); breakValidationError = true; return; } if (endMins > startMins && (startMins < workStartMinutes || endMins > workEndMinutes)) { showMessage(messageBox, messageText, `Break ${index + 1} must be fully within the work hours.`); breakValidationError = true; return; } validBreaks.push({ start: startMins, end: endMins, duration: Math.max(0, endMins - startMins), name: `Break ${index + 1}` }); }); if (breakValidationError) return; validBreaks.sort((a, b) => a.start - b.start); for (let i = 0; i < validBreaks.length - 1; i++) { if (validBreaks[i].end > validBreaks[i+1].start + epsilon) { showMessage(messageBox, messageText, `Break times overlap (e.g., ${validBreaks[i].name} and ${validBreaks[i+1].name}). Please correct.`); return; } }
+
+            // ... (Calculation logic remains the same) ...
+            const totalWorkDuration = workEndMinutes - workStartMinutes; const totalBreakDuration = validBreaks.reduce((sum, br) => sum + br.duration, 0); const availableWorkMinutes = totalWorkDuration - totalBreakDuration; if (availableWorkMinutes <= epsilon) { showMessage(messageBox, messageText, 'Total available work time (excluding breaks) is effectively zero or negative.'); return; } const minutesPerTask = availableWorkMinutes / numberOfTasks; if (minutesPerTask < epsilon) { showMessage(messageBox, messageText, `Calculated task duration is effectively zero (${minutesPerTask.toFixed(2)} mins). Please adjust times or task count.`); return; }
+
+            // ... (Event generation logic remains the same) ...
+            let scheduleEvents = []; let calculationError = false; let currentTime = workStartMinutes; const breaks = validBreaks; breaks.forEach(br => { if (br.duration > epsilon) { scheduleEvents.push({ type: 'break', name: br.name, startMins: br.start, endMins: br.end }); } }); for (let i = 1; i <= numberOfTasks; i++) { let remainingMinutesForTask = minutesPerTask; let taskPart = 1; let adjusted = true; while(adjusted){ adjusted = false; for (const br of breaks) { if (currentTime >= br.start - epsilon && currentTime < br.end - epsilon) { currentTime = br.end; adjusted = true; break; } } } while (remainingMinutesForTask > epsilon) { if (currentTime >= workEndMinutes - epsilon) { showMessage(messageBox, messageText, `Not enough time to complete Task ${i}. Schedule ends at ${formatTime(workEndMinutes)}.`); calculationError = true; break; } let nextBreakStartTime = workEndMinutes; for (const br of breaks) { if (br.start > currentTime - epsilon) { nextBreakStartTime = Math.min(nextBreakStartTime, br.start); } } const timeUntilNextInterruption = nextBreakStartTime - currentTime; const durationThisSegment = Math.min(remainingMinutesForTask, timeUntilNextInterruption); const segmentEndTime = currentTime + durationThisSegment; scheduleEvents.push({ type: 'task', name: `Task ${i}`, part: taskPart, startMins: currentTime, endMins: segmentEndTime }); remainingMinutesForTask -= durationThisSegment; currentTime = segmentEndTime; taskPart++; adjusted = true; while(adjusted){ adjusted = false; for (const br of breaks) { if (Math.abs(currentTime - br.start) < epsilon) { currentTime = br.end; adjusted = true; break; } } } } if (calculationError) break; }
+
+            // --- Sort and Display Results ---
+            if (!calculationError) {
+                const hasTasks = scheduleEvents.some(e => e.type === 'task');
+                if (!hasTasks && numberOfTasks > 0) { showMessage(messageBox, messageText, 'Could not schedule any tasks. Available work time might be too small.'); }
+                else if (scheduleEvents.length > 0) {
+                    scheduleEvents.sort((a, b) => { if (Math.abs(a.startMins - b.startMins) < epsilon) { if (a.type === 'break' && b.type !== 'break') return -1; if (b.type === 'break' && a.type !== 'break') return 1; if (a.type === 'task' && b.type === 'task') return a.part - b.part; return 0; } return a.startMins - b.startMins; });
+
+                    // Call displaySchedule function
+                    const taskWasSplit = displaySchedule(scheduleEvents);
+
+                    // *** Use new formatDuration function in success message ***
+                    const formattedDuration = formatDuration(minutesPerTask);
+                    let successMsg = `Successfully generated schedule with ${numberOfTasks} tasks. Approximately ${formattedDuration} available for each task.`;
+                    // *** End of change ***
+
+                    if (taskWasSplit) successMsg += " Some tasks were split due to breaks.";
+                    showMessage(successBox, successText, successMsg, false);
+                } else { showMessage(messageBox, messageText, 'No schedule items to display. Check input values.'); }
+            } else { resultsList.innerHTML = ''; resultsArea.classList.remove('visible'); currentScheduleEvents = []; }
+        });
     </script>
 
 </body>
